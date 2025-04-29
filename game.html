@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Click Square Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-image: radial-gradient(circle, #ccc 1px, transparent 1px);
+            background-size: 20px 20px;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        .square {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background-color: gray;
+            transition: opacity 0.5s, transform 0.2s;
+            pointer-events: none;
+            border-radius: 10px;
+        }
+        .square.wobble {
+            animation: wobble 0.3s ease;
+        }
+        .square.fade-out {
+            opacity: 0;
+        }
+        .boss {
+            width: 100px;
+            height: 100px;
+            background-color: darkred;
+            border: 2px solid gold;
+        }
+        @keyframes wobble {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-5px) rotate(-5deg); }
+            50% { transform: translateX(5px) rotate(5deg); }
+            75% { transform: translateX(-5px) rotate(-5deg); }
+            100% { transform: translateX(0); }
+        }
+        #range-indicator {
+            position: absolute;
+            border-radius: 50%;
+            border: 1px solid rgba(0, 0, 0, 0.3);
+            background-color: rgba(0, 0, 255, 0.1);
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            transition: left 0.1s ease-out, top 0.1s ease-out;
+        }
+        #stats {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        #upgrades {
+            position: absolute;
+            top: 60px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        #trait-display {
+            position: absolute;
+            top: 10px;
+            left: 150px;
+            font-size: 24px;
+            color: #333;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        #owner-button {
+            position: absolute;
+            top: 300px; /* Moved down to avoid overlap */
+            left: 10px;
+            padding: 10px;
+            background: #444;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        #owner-ui {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            display: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        #owner-controls {
+            position: absolute;
+            top: 350px; /* Moved down to stay below #owner-button */
+            left: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        #warning-ui {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: red;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        #inventory-button {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px;
+            background: #444;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        #inventory-ui {
+            position: absolute;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            width: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        .inventory-item {
+            margin: 5px 0;
+            padding: 5px;
+            background: #eee;
+            border-radius: 5px;
+        }
+        button {
+            display: block;
+            margin: 5px 0;
+            padding: 5px;
+        }
+        .damage-text {
+            position: absolute;
+            color: red;
+            font-weight: bold;
+            pointer-events: none;
+            transition: opacity 1s;
+        }
+        .sword-cursor {
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2L8 6v2L4 12l4 4v2l4 4 4-4v-2l4-4-4-4v-2zm0 2l2 2v2l2 2-2 2v2l-2 2-2-2v-2l-2-2 2-2v-2z" fill="black"/></svg>') 12 12, auto;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="stats">
+            Cash: <span id="cash">0</span>
+        </div>
+        <div id="upgrades">
+            <button id="upgrade-damage">Upgrade Damage (Cost: 10)</button>
+            <button id="upgrade-square-strength">Upgrade Square Strength (Cost: 100)</button>
+            <button id="upgrade-max-squares">Upgrade Max Squares (Cost: 50)</button>
+            <button id="roll-trait">Roll Trait (Cost: 100)</button>
+            <button id="clear-squares-regular">Clear All Squares (Cost: 100)</button>
+            <button id="reset-coins">Reset Coins</button>
+        </div>
+        <div id="trait-display">Trait: None</div>
+        <button id="owner-button">OWNER</button>
+        <div id="owner-ui">
+            <button id="close-owner" style="position: absolute; top: 5px; left: 5px;">X</button>
+            <input type="text" id="owner-code" placeholder="Enter Code">
+            <button id="submit-code">Submit</button>
+        </div>
+        <div id="owner-controls">
+            <input type="number" id="set-cash" placeholder="Set Cash">
+            <button id="apply-cash">Apply</button>
+            <input type="number" id="set-damage" placeholder="Set Damage">
+            <button id="apply-damage">Apply</button>
+            <button id="spawn-square">Spawn Square</button>
+            <button id="spawn-boss">Spawn Boss</button>
+            <button id="grant-god-slayer">Grant God Slayer</button>
+            <button id="clear-squares">Clear All Squares</button>
+        </div>
+        <div id="warning-ui">
+            <p>Are you sure you want to roll off your rare trait?</p>
+            <button id="confirm-roll">Yes</button>
+            <button id="cancel-roll">No</button>
+        </div>
+        <button id="inventory-button">Inventory</button>
+        <div id="inventory-ui"></div>
+        <div id="range-indicator"></div>
+    </div>
+    <script>
+        const player = {
+            cash: 0,
+            damage: 1,
+            range: 50,
+            cooldown: 1000,
+            critChance: 0,
+            critMultiplier: 1,
+            damageMultiplier: 1,
+            rangeMultiplier: 1,
+            cooldownMultiplier: 1,
+            cashMultiplier: 1,
+            currentTrait: 'None',
+            tempDamageMultiplier: 1,
+            equippedWeapon: null
+        };
+
+        let squares = [];
+        let maxSquares = 10;
+        const maxSquaresLimit = 50;
+        let squareStrength = 1;
+        let lastClickTime = 0;
+        const spawnInterval = 1000;
+        let isOwner = false;
+        let inventory = [];
+        let activeEffects = [];
+        let squaresKilled = 0;
+
+        const cashDisplay = document.getElementById('cash');
+        const rangeIndicator = document.getElementById('range-indicator');
+        const traitDisplay = document.getElementById('trait-display');
+        const ownerButton = document.getElementById('owner-button');
+        const ownerUI = document.getElementById('owner-ui');
+        const closeOwner = document.getElementById('close-owner');
+        const ownerCodeInput = document.getElementById('owner-code');
+        const submitCode = document.getElementById('submit-code');
+        const ownerControls = document.getElementById('owner-controls');
+        const setCashInput = document.getElementById('set-cash');
+        const applyCash = document.getElementById('apply-cash');
+        const setDamageInput = document.getElementById('set-damage');
+        const applyDamage = document.getElementById('apply-damage');
+        const spawnSquareButton = document.getElementById('spawn-square');
+        const spawnBossButton = document.getElementById('spawn-boss');
+        const grantGodSlayerButton = document.getElementById('grant-god-slayer');
+        const clearSquaresButton = document.getElementById('clear-squares');
+        const clearSquaresRegularButton = document.getElementById('clear-squares-regular');
+        const resetCoinsButton = document.getElementById('reset-coins');
+        const warningUI = document.getElementById('warning-ui');
+        const confirmRoll = document.getElementById('confirm-roll');
+        const cancelRoll = document.getElementById('cancel-roll');
+        const inventoryButton = document.getElementById('inventory-button');
+        const inventoryUI = document.getElementById('inventory-ui');
+
+        function updateStats() {
+            cashDisplay.textContent = Math.floor(player.cash);
+            traitDisplay.textContent = `Trait: ${player.currentTrait}`;
+        }
+
+        function getColorForStrength(strength) {
+            if (strength % 5 === 0) {
+                const r = Math.floor(Math.random() * 256);
+                const g = Math.floor(Math.random() * 256);
+                const b = Math.floor(Math.random() * 256);
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+            if (strength <= 1) return 'gray';
+            if (strength <= 2) return 'blue';
+            if (strength <= 3) return 'green';
+            if (strength <= 4) return 'purple';
+            return 'red';
+        }
+
+        function spawnSquare(strength, isBoss = false) {
+            const uiElements = ['stats', 'upgrades', 'trait-display', 'owner-button', 'owner-controls', 'inventory-button', 'inventory-ui'];
+            const uiRects = uiElements.map(id => {
+                const el = document.getElementById(id);
+                return el && el.offsetParent ? el.getBoundingClientRect() : null;
+            }).filter(rect => rect);
+
+            let x, y;
+            let attempts = 0;
+            const squareSize = isBoss ? 100 : 50;
+            const health = isBoss ? strength * 10 : strength;
+
+            if (isNaN(health) || health <= 0) {
+                console.warn(`Invalid health (${health}) for ${isBoss ? 'boss' : 'square'}, skipping spawn`);
+                return;
+            }
+
+            do {
+                x = Math.random() * (window.innerWidth - squareSize);
+                y = Math.random() * (window.innerHeight - squareSize);
+                attempts++;
+            } while (attempts < 10 && uiRects.some(rect => 
+                x < rect.right && x + squareSize > rect.left && y < rect.bottom && y + squareSize > rect.top
+            ));
+
+            const square = document.createElement('div');
+            square.className = `square${isBoss ? ' boss' : ''}`;
+            square.style.left = x + 'px';
+            square.style.top = y + 'px';
+            square.dataset.health = health;
+            square.dataset.maxHealth = health;
+            square.dataset.isBoss = isBoss ? 'true' : 'false';
+            square.style.backgroundColor = isBoss ? 'darkred' : getColorForStrength(strength);
+            square.style.opacity = 1;
+            document.getElementById('game-container').appendChild(square);
+            squares.push(square);
+            console.log(`Spawned ${isBoss ? 'boss' : 'square'} at (${x}, ${y}) with health ${health}`);
+        }
+
+        setInterval(() => {
+            if (squares.length < maxSquares) {
+                spawnSquare(squareStrength);
+            }
+        }, spawnInterval);
+
+        document.addEventListener('mousemove', (e) => {
+            const actualRange = player.range * player.rangeMultiplier;
+            rangeIndicator.style.left = e.clientX + 'px';
+            rangeIndicator.style.top = e.clientY + 'px';
+            rangeIndicator.style.width = (actualRange * 2) + 'px';
+            rangeIndicator.style.height = (actualRange * 2) + 'px';
+        });
+
+        document.addEventListener('click', (e) => {
+            const currentTime = Date.now();
+            const actualCooldown = player.cooldown * player.cooldownMultiplier;
+            if (currentTime - lastClickTime < actualCooldown) return;
+            lastClickTime = currentTime;
+
+            squares.forEach((square, index) => {
+                const rect = square.getBoundingClientRect();
+                const squareX = rect.left + rect.width / 2;
+                const squareY = rect.top + rect.height / 2;
+                const dx = e.clientX - squareX;
+                const dy = e.clientY - squareY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const actualRange = player.range * player.rangeMultiplier;
+
+                if (distance <= actualRange) {
+                    let damage = player.damage * player.damageMultiplier * player.tempDamageMultiplier;
+                    if (player.equippedWeapon === 'God Slayer') damage *= 100;
+                    if (Math.random() < player.critChance) {
+                        damage *= player.critMultiplier;
+                    }
+                    let health = Number(square.dataset.health) - damage;
+                    if (isNaN(health) || health < 0) health = 0;
+                    square.dataset.health = health;
+                    const maxHealth = Number(square.dataset.maxHealth);
+
+                    console.log(`Clicked square at (${squareX}, ${squareY}), dealt ${damage} damage, health now ${health}`);
+
+                    square.classList.add('wobble');
+                    setTimeout(() => square.classList.remove('wobble'), 300);
+
+                    if (health <= 0) {
+                        square.classList.add('fade-out');
+                        setTimeout(() => {
+                            if (square.parentNode) {
+                                square.remove();
+                                squares.splice(index, 1);
+                            }
+                        }, 500);
+                        player.cash += squareStrength * player.cashMultiplier;
+                        const isBoss = square.dataset.isBoss === 'true';
+                        handleDrops(isBoss);
+                        squaresKilled++;
+                        console.log(`Square killed, total killed: ${squaresKilled}`);
+                        if (squaresKilled >= 10) {
+                            spawnSquare(squareStrength, true);
+                            squaresKilled = 0;
+                            console.log('Boss spawned after 10 squares killed');
+                        }
+                    } else {
+                        square.style.opacity = health / maxHealth;
+                    }
+                    showDamageText(square, damage);
+                    updateStats();
+                }
+            });
+        });
+
+        function showDamageText(square, damage) {
+            const damageText = document.createElement('div');
+            damageText.className = 'damage-text';
+            damageText.textContent = `-${Math.floor(damage)}`;
+            const rect = square.getBoundingClientRect();
+            damageText.style.left = (rect.left + rect.width / 2) + 'px';
+            damageText.style.top = (rect.top - 20) + 'px';
+            document.getElementById('game-container').appendChild(damageText);
+            setTimeout(() => {
+                damageText.style.opacity = 0;
+                setTimeout(() => damageText.remove(), 1000);
+            }, 500);
+        }
+
+        function handleDrops(isBoss) {
+            const dropChances = {
+                'Basic Potion': isBoss ? 0.25 : 0.05,
+                'Rare Potion': isBoss ? 0.05 : 0.01,
+                'Legendary Potion': isBoss ? 0.025 : 0.005,
+                'Secret Potion': isBoss ? 0.005 : 0.001,
+                'Admin Potion': isBoss ? 0.0025 : 0.0005
+            };
+            for (const [item, chance] of Object.entries(dropChances)) {
+                if (Math.random() < chance) {
+                    inventory.push({ type: 'potion', name: item });
+                    updateInventoryUI();
+                }
+            }
+            if (isBoss && Math.random() < 0.01) {
+                inventory.push({ type: 'weapon', name: 'God Slayer' });
+                updateInventoryUI();
+            }
+        }
+
+        function applyPotion(potionName) {
+            const effectDurations = {
+                'Basic Potion': 10 * 60 * 1000,
+                'Rare Potion': 60 * 60 * 1000,
+                'Legendary Potion': 10 * 60 * 60 * 1000,
+                'Secret Potion': 10 * 60 * 60 * 1000,
+                'Admin Potion': 10 * 60 * 60 * 1000
+            };
+            const effectMultipliers = {
+                'Basic Potion': 1.15,
+                'Rare Potion': 2,
+                'Legendary Potion': 11,
+                'Secret Potion': 500000,
+                'Admin Potion': Infinity
+            };
+            const duration = effectDurations[potionName];
+            const multiplier = effectMultipliers[potionName];
+            player.tempDamageMultiplier *= multiplier;
+            activeEffects.push({ potion: potionName, multiplier, endTime: Date.now() + duration });
+            setTimeout(() => {
+                activeEffects = activeEffects.filter(effect => effect.potion !== potionName);
+                player.tempDamageMultiplier = activeEffects.reduce((acc, effect) => acc * effect.multiplier, 1);
+            }, duration);
+            updateInventoryUI();
+        }
+
+        function updateInventoryUI() {
+            inventoryUI.innerHTML = '<h3>Inventory</h3>';
+            const itemCounts = {};
+            inventory.forEach(item => {
+                const key = `${item.type}:${item.name}`;
+                itemCounts[key] = (itemCounts[key] || 0) + 1;
+            });
+            for (const [key, count] of Object.entries(itemCounts)) {
+                const [type, name] = key.split(':');
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'inventory-item';
+                itemDiv.textContent = `${name} x${count}`;
+                if (type === 'potion') {
+                    const useButton = document.createElement('button');
+                    useButton.textContent = 'Use';
+                    useButton.onclick = () => {
+                        const index = inventory.findIndex(i => i.type === type && i.name === name);
+                        if (index !== -1) {
+                            inventory.splice(index, 1);
+                            applyPotion(name);
+                            updateInventoryUI();
+                        }
+                    };
+                    itemDiv.appendChild(useButton);
+                } else if (type === 'weapon') {
+                    const equipButton = document.createElement('button');
+                    equipButton.textContent = player.equippedWeapon === name ? 'Unequip' : 'Equip';
+                    equipButton.onclick = () => {
+                        if (player.equippedWeapon === name) {
+                            player.equippedWeapon = null;
+                            document.body.classList.remove('sword-cursor');
+                        } else {
+                            player.equippedWeapon = name;
+                            document.body.classList.add('sword-cursor');
+                        }
+                        updateInventoryUI();
+                    };
+                    itemDiv.appendChild(equipButton);
+                }
+                inventoryUI.appendChild(itemDiv);
+            }
+        }
+
+        inventoryButton.addEventListener('click', () => {
+            inventoryUI.style.display = inventoryUI.style.display === 'block' ? 'none' : 'block';
+        });
+
+        document.getElementById('upgrade-damage').addEventListener('click', () => {
+            if (player.cash >= 10) {
+                player.cash -= 10;
+                player.damage += 1;
+                updateStats();
+            }
+        });
+
+        document.getElementById('upgrade-square-strength').addEventListener('click', () => {
+            if (player.cash >= 100) {
+                player.cash -= 100;
+                squares.forEach(square => square.remove());
+                squares = [];
+                squareStrength += 1;
+                updateStats();
+            }
+        });
+
+        document.getElementById('upgrade-max-squares').addEventListener('click', () => {
+            if (player.cash >= 50 && maxSquares < maxSquaresLimit) {
+                player.cash -= 50;
+                maxSquares += 1;
+                updateStats();
+            }
+        });
+
+        document.getElementById('roll-trait').addEventListener('click', () => {
+            if (player.cash >= 100) {
+                if (['monarch', 'deadeye', 'ethereal', 'solar'].includes(player.currentTrait)) {
+                    warningUI.style.display = 'block';
+                } else {
+                    rollAndApplyTrait();
+                }
+            }
+        });
+
+        clearSquaresRegularButton.addEventListener('click', () => {
+            if (player.cash >= 100) {
+                player.cash -= 100;
+                squares.forEach(square => square.remove());
+                squares = [];
+                updateStats();
+                console.log('Squares cleared by regular player');
+            }
+        });
+
+        resetCoinsButton.addEventListener('click', () => {
+            player.cash = 0;
+            updateStats();
+            console.log('Coins reset to 0');
+        });
+
+        confirmRoll.addEventListener('click', () => {
+            warningUI.style.display = 'none';
+            rollAndApplyTrait();
+        });
+
+        cancelRoll.addEventListener('click', () => {
+            warningUI.style.display = 'none';
+        });
+
+        function rollAndApplyTrait() {
+            player.cash -= 100;
+            const trait = rollTrait();
+            applyTrait(trait);
+            player.currentTrait = trait;
+            updateStats();
+        }
+
+        function rollTrait() {
+            const rand = Math.random() * 100;
+            if (rand < 0.1) return 'monarch';
+            if (rand < 0.1 + 0.175) return 'ethereal';
+            if (rand < 0.1 + 0.175 + 0.375) return 'deadeye';
+            if (rand < 0.1 + 0.175 + 0.375 + 0.5) return 'solar';
+            if (rand < 0.1 + 0.175 + 0.375 + 0.5 + 1.85) return 'blitz';
+            if (rand < 0.1 + 0.175 + 0.375 + 0.5 + 1.85 + 2.5) return 'fortune';
+            if (rand < 0.1 + 0.175 + 0.375 + 0.5 + 1.85 + 2.5 + 6.5) return 'marksman';
+            if (rand < 0.1 + 0.175 + 0.375 + 0.5 + 1.85 + 2.5 + 6.5 + 10) return 'behemoth';
+            if (rand < 0.1 + 0.175 + 0.375 + 0.5 + 1.85 + 2.5 + 6.5 + 10 + 26) return 'vigor';
+            if (rand < 0.1 + 0.175 + 0.375 + 0.5 + 1.85 + 2.5 + 6.5 + 10 + 26 + 26) return 'swift';
+            return 'range';
+        }
+
+        function applyTrait(trait) {
+            player.damageMultiplier = 1;
+            player.rangeMultiplier = 1;
+            player.cooldownMultiplier = 1;
+            player.cashMultiplier = 1;
+            player.critChance = 0;
+            player.critMultiplier = 1;
+
+            switch (trait) {
+                case 'range':
+                    player.rangeMultiplier = 1.1;
+                    break;
+                case 'swift':
+                    player.cooldownMultiplier = 0.875;
+                    break;
+                case 'vigor':
+                    player.damageMultiplier = 1.1;
+                    break;
+                case 'behemoth':
+                    player.damageMultiplier = 1.25;
+                    break;
+                case 'marksman':
+                    player.rangeMultiplier = 1.3;
+                    break;
+                case 'fortune':
+                    player.cashMultiplier = 3.5;
+                    break;
+                case 'blitz':
+                    player.cooldownMultiplier = 0.5;
+                    break;
+                case 'solar':
+                    player.damageMultiplier = 1.55;
+                    player.rangeMultiplier = 1.05;
+                    break;
+                case 'deadeye':
+                    player.critChance = 0.5;
+                    player.critMultiplier = 4;
+                    break;
+                case 'ethereal':
+                    player.damageMultiplier = 1.5;
+                    player.rangeMultiplier = 1.5;
+                    player.cooldownMultiplier = 0.5;
+                    break;
+                case 'monarch':
+                    player.damageMultiplier = 6;
+                    player.rangeMultiplier = 2;
+                    player.critChance = 0.5;
+                    player.critMultiplier = 2;
+                    break;
+            }
+            console.log(`Applied trait: ${trait}, rangeMultiplier: ${player.rangeMultiplier}`);
+        }
+
+        ownerButton.addEventListener('click', () => {
+            ownerUI.style.display = 'block';
+        });
+
+        closeOwner.addEventListener('click', () => {
+            ownerUI.style.display = 'none';
+        });
+
+        submitCode.addEventListener('click', () => {
+            if (ownerCodeInput.value === 'Charakem607') {
+                isOwner = true;
+                ownerUI.style.display = 'none';
+                ownerControls.style.display = 'block';
+                alert('OWNER access granted!');
+            } else {
+                alert('Incorrect code.');
+            }
+        });
+
+        applyCash.addEventListener('click', () => {
+            if (isOwner) {
+                player.cash = parseFloat(setCashInput.value) || 0;
+                updateStats();
+            }
+        });
+
+        applyDamage.addEventListener('click', () => {
+            if (isOwner) {
+                player.damage = parseFloat(setDamageInput.value) || 1;
+                updateStats();
+            }
+        });
+
+        spawnSquareButton.addEventListener('click', () => {
+            if (isOwner) {
+                spawnSquare(squareStrength);
+            }
+        });
+
+        spawnBossButton.addEventListener('click', () => {
+            if (isOwner) {
+                spawnSquare(squareStrength, true);
+                console.log('Boss spawned via owner controls');
+            }
+        });
+
+        grantGodSlayerButton.addEventListener('click', () => {
+            if (isOwner) {
+                inventory.push({ type: 'weapon', name: 'God Slayer' });
+                updateInventoryUI();
+            }
+        });
+
+        clearSquaresButton.addEventListener('click', () => {
+            if (isOwner) {
+                squares.forEach(square => square.remove());
+                squares = [];
+                console.log('Squares cleared by owner');
+            }
+        });
+
+        setInterval(() => {
+            squares = squares.filter((square, index) => {
+                const health = Number(square.dataset.health);
+                if (isNaN(health) || health < 0) {
+                    console.warn(`Removing invalid square with health ${health}`);
+                    square.remove();
+                    return false;
+                }
+                return true;
+            });
+        }, 5000);
+
+        updateStats();
+    </script>
+</body>
+</html>
